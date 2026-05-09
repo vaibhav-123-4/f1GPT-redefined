@@ -9,16 +9,19 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Only show conversations that actually have at least one message.
+  // This avoids sidebar spam from unused "New chat" rows.
   const { data, error } = await supabase
     .from("conversations")
-    .select("id,title,created_at,updated_at")
+    .select("id,title,created_at,updated_at,messages!inner(id)")
     .order("updated_at", { ascending: false });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ conversations: data ?? [] });
+  const conversations = (data ?? []).map(({ messages, ...c }: any) => c);
+  return NextResponse.json({ conversations });
 }
 
 export async function POST() {

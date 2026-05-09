@@ -63,27 +63,8 @@ export function ChatUI({ devBuildId }: ChatUIProps) {
   }, [messages, isPending]);
 
   useEffect(() => {
-    // Create a conversation on first load.
-    if (conversationId) {
-      return;
-    }
-
-    startTransition(async () => {
-      try {
-        const response = await fetch("/api/conversations", { method: "POST" });
-        const payload = (await response.json()) as {
-          conversation?: { id: string };
-          error?: string;
-        };
-        if (!response.ok || !payload.conversation?.id) {
-          throw new Error(payload.error ?? "Failed to create conversation");
-        }
-        setConversationId(payload.conversation.id);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to initialize chat.");
-      }
-    });
-  }, [conversationId]);
+    // Intentionally do not create a conversation until the user sends a message.
+  }, []);
 
   async function loadConversation(nextConversationId: string) {
     setError(null);
@@ -113,21 +94,8 @@ export function ChatUI({ devBuildId }: ChatUIProps) {
 
   async function newChat() {
     setError(null);
-    setIsHistoryLoading(true);
-    try {
-      const response = await fetch("/api/conversations", { method: "POST" });
-      const payload = (await response.json()) as {
-        conversation?: { id: string };
-        error?: string;
-      };
-      if (!response.ok || !payload.conversation?.id) {
-        throw new Error(payload.error ?? "Failed to create conversation");
-      }
-      setConversationId(payload.conversation.id);
-      setMessages(starterMessages);
-    } finally {
-      setIsHistoryLoading(false);
-    }
+    setConversationId(null);
+    setMessages(starterMessages);
   }
 
   function appendUserMessage(content: string) {
@@ -151,11 +119,6 @@ export function ChatUI({ devBuildId }: ChatUIProps) {
   }
 
   async function submitMessage(content: string) {
-    if (!conversationId) {
-      setError("Chat is not ready yet. Try again.");
-      return;
-    }
-
     const userMessage = appendUserMessage(content);
 
     if (!userMessage) {
@@ -164,13 +127,29 @@ export function ChatUI({ devBuildId }: ChatUIProps) {
 
     startTransition(async () => {
       try {
+        let activeConversationId = conversationId;
+        if (!activeConversationId) {
+          const response = await fetch("/api/conversations", { method: "POST" });
+          const payload = (await response.json()) as {
+            conversation?: { id: string };
+            error?: string;
+          };
+
+          if (!response.ok || !payload.conversation?.id) {
+            throw new Error(payload.error ?? "Failed to create conversation");
+          }
+
+          activeConversationId = payload.conversation.id;
+          setConversationId(activeConversationId);
+        }
+
         const history = [...messages, userMessage].map(({ id, ...message }) => ({ id, ...message }));
         const response = await fetch("/api/chat", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ messages: history, conversationId }),
+          body: JSON.stringify({ messages: history, conversationId: activeConversationId }),
         });
 
         const payload = (await response.json()) as ChatResponseBody & {
