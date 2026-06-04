@@ -1,16 +1,26 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export function LoginUI() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    const oauthError = searchParams.get("error");
+    const details = searchParams.get("details");
+    if (!oauthError) return;
+    const composed = details ? `${oauthError}: ${details}` : oauthError;
+    setError(composed);
+  }, [searchParams]);
 
   // In development, we optionally force-clear any stale auth cookies
   // so a server restart behaves like a fresh session.
@@ -82,10 +92,13 @@ export function LoginUI() {
 
     await devLogout();
 
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    const redirectTo = new URL("/auth/callback", siteUrl ?? window.location.origin).toString();
+
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo,
       },
     });
 

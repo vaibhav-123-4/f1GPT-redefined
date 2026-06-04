@@ -1,8 +1,37 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
+function getBaseUrl(request: NextRequest) {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL;
+  if (configured) {
+    return configured.replace(/\/$/, "");
+  }
+
+  // Prefer proxy headers on Vercel.
+  const proto = request.headers.get("x-forwarded-proto");
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  if (proto && host) {
+    return `${proto}://${host}`;
+  }
+
+  return new URL(request.url).origin;
+}
+
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+  const origin = getBaseUrl(request);
+
+  const oauthError = searchParams.get("error");
+  const oauthErrorDescription = searchParams.get("error_description");
+  if (oauthError) {
+    const url = new URL("/login", origin);
+    url.searchParams.set("error", oauthError);
+    if (oauthErrorDescription) {
+      url.searchParams.set("details", oauthErrorDescription);
+    }
+    return NextResponse.redirect(url);
+  }
+
   const code = searchParams.get("code");
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -34,8 +63,11 @@ export async function GET(request: NextRequest) {
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
-    return NextResponse.redirect(`${origin}/login?error=auth_failed`);
+    console.error("Auth exchange failed:", error);
+    return NextResponse.redirect(`${origin}/login?error=auth_failed&details=${encodeURIComponent(error.message)}`);
   }
 
+  // Ensure cookies are set before redirecting
+  response.headers.set("Cache-Control", "no-store");
   return response;
 }
