@@ -2,16 +2,11 @@ import { OpenRouterMessage } from "@/types";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-// Keep to free-tier models only.
-// Note: some previously-available `:free` aliases may not have endpoints at runtime.
+// Free-tier models with tool-calling support
 const FREE_MODELS = [
-  "openrouter/free",
-  // Tool-call capable fallback that is currently available on OpenRouter free tier.
   "google/gemma-4-31b-it-20260402:free",
-  // Requested fallback options (may not be available depending on OpenRouter inventory).
-  "meta-llama/llama-3.1-8b-instruct:free",
-  "mistralai/mistral-7b-instruct:free",
-  "nvidia/nemotron-3-ultra-550b-a55b:free",
+  
+  
 ];
 
 export const F1_SYSTEM_PROMPT =
@@ -138,5 +133,5 @@ export async function createChatCompletion({
     }
   }
 
-  throw lastError ?? new Error("All OpenRouter free models failed.");
+  throw lastError ?? new Error("All OpenRouter free models failed. They may not be available in your region.");
 }

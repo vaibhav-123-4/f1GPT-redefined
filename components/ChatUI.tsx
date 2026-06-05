@@ -42,18 +42,9 @@ export function ChatUI({ devBuildId }: ChatUIProps) {
     }
 
     const key = "f1gpt:devBuildId";
-    const prev = window.localStorage.getItem(key);
-    if (prev && prev !== devBuildId) {
-      // Dev-only: treat server restart like a logout.
-      void supabase.auth.signOut().finally(() => {
-        window.localStorage.setItem(key, devBuildId);
-        window.location.href = "/login";
-      });
-      return;
-    }
-
     window.localStorage.setItem(key, devBuildId);
-  }, [devBuildId, supabase]);
+    // Note: Dev logout on restart disabled to prevent session loss during development
+  }, [devBuildId]);
 
   useEffect(() => {
     listRef.current?.scrollTo({
